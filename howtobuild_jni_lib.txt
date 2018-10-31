@@ -1,0 +1,105 @@
+
+
+Android NDK 使用第一步，编译c文件，声明jni并调用。
+
+符号的约定：
+<project> - 你的Android应用程序工程的目录
+<ndk> - 你的ndk安装的目录
+
+1. 调用
+如果你不需要使用NDK开发，只是需要使用第三方用NDK开发的库，那么你只需要这样做：
+把第三方提供的libxxx.so放到你的<project>/libs/armeabi/下， 然后在程序随便什么地方比如Activity子类中加入
+static {
+    System.loadLibrary("mylib");
+}
+就可以使用该库了。
+
+
+Android Studio的JNI默认路径则需放在 src/main/jniLibs/armeabi/ 下.
+
+或者： 
+    直接修改build.gradle文件如下：
+
+android {
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['libs']
+        }
+}
+
+然后将*.so 放在 <project>/libs/ABI NAME/*.so
+
+    其实两种方法的原理是一样的。
+
+    方法1是：直接将so文件放到了Android Studio 的默认路径src/main/jniLibs.
+    方法2是：修改jniLibs的默认路径为libs
+
+
+
+
+2. Android.mk和Application.mk
+Android.mk是一个makefile，用来告诉NDK需要编译哪些文件，生成哪些模块。我们创建<jni>/Android.mk文件：
+
+###############################
+LOCAL_PATH := $(call my-dir)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE    := mylib
+LOCAL_SRC_FILES := mylib.c
+
+include $(BUILD_SHARED_LIBRARY)
+###############################
+
+其中
+LOCAL_PATH表示c源代码文件的位置；
+LOCAL_MODULE表示生成的共享库的名称；
+LOCAL_SRC_FILES代表c代码的文件。不需要把头文件列在里面；头文件的依赖关系是ndk自动计算的。 
+
+Application.mk的作用是告诉Android SDK需要哪些库文件。有了它，NDK就可以把库放在正确的位置。我们创建<project>/Application.mk:
+
+###############################
+APP_PROJECT_PATH := $(call my-dir)
+APP_MODULES      := mylib
+###############################
+
+APP_PROJECT_PATH代表android工程所在目录，在本例中它被放在<project>中； APP_MODULES表示工程需要的库，如果有多个以空格分开。
+
+
+3. 编译共享库
+
+ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=./Android.mk
+
+But it's much easier to create ./jni directory and put both Application.mk and Android.mk there.
+
+ndk-build
+# 如找不到则带上路径
+
+可以看到编译成功，并在<project>/libs/armeabi/下生成了libmylib.so。
+
+
+
+4. 也可直接将c文件放在 <project>/app/src/main/jni/ 目录下，利用 Android Studio 一起编译。
+
+
+附例子:
+
+建一个 jni 目录，下面放:
+   Android.mk
+   jni.c
+   build.sh
+
+运行build.sh后直接会生成并将libjni.so放到目标位置
+build.sh 如下:
+
+~/Downloads/android-ndk-r10e/ndk-build
+cd ..
+mv -f libs/armeabi/libjni.so lib/armeabi/
+zip lib.zip -r lib/
+mv -f lib.zip libs/armeabi.jar
+cd jni
+
+
+References:
+Android导入第三方静态库.a编译成动态库.so
+http://ikinglai.blog.51cto.com/6220785/1324985
